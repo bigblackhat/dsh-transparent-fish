@@ -1,0 +1,72 @@
+{
+  "name": "dsh-transparent-fish",
+  "version": "0.1.0",
+  "description": "为 DeepSeek Harness 换上一层随壁纸流动的液态玻璃：本地壁纸库（图片/视频）、分区材质、气泡与侧栏悬浮、主题跟随壁纸。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "liquid-glass",
+    "wallpaper",
+    "theme",
+    "ui"
+  ],
+  "type": "module",
+  "main": "lib/index.js",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "client",
+    "src",
+    "build.mjs",
+    "locale",
+    "docs",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.0-0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    },
+    "compatibility": {
+      "dsh": ">=0.2.0-0",
+      "profiles": [
+        "web",
+        "desktop"
+      ]
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bigblackhat/dsh-transparent-fish.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bigblackhat/dsh-transparent-fish/issues"
+  },
+  "homepage": "https://github.com/bigblackhat/dsh-transparent-fish#readme",
+  "license": "MIT"
+}

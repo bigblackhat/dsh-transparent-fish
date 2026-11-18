@@ -1,0 +1,15 @@
+# macOS 产生的目录元数据
+.DS_Store
+
+# 依赖
+node_modules/
+
+# npm 打包产物
+*.tgz
+
+# 本地设计记录与过程截图（含本机画面，不公开）
+notes/
+
+# 编辑器
+.vscode/
+.idea/

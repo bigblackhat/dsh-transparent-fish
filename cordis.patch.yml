@@ -1,0 +1,16 @@
+# ============================================================================
+# dsh-transparent-fish —— 透明肥鱼
+# ============================================================================
+# 宿主侧负责壁纸文件的存取（$DSH_HOME/transparent-fish/），
+# 客户端负责玻璃材质与设置面板。
+#
+# 安装（发布版）：
+#   dsh plugin --profile desktop add dsh-transparent-fish
+#
+# 开发时从本地目录安装：
+#   dsh plugin --profile desktop add link:<本目录绝对路径>
+# ============================================================================
+
+- insert:
+    - id: dsh-transparent-fish
+      name: dsh-transparent-fish

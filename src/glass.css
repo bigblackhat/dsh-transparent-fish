@@ -1,0 +1,1096 @@
+/* ============================================================================
+   透明肥鱼 —— 固定材质版
+   ----------------------------------------------------------------------------
+   规则（按用户对苹果玻璃的观察定的）：
+   1. 玻璃是**一整块固定颜色**，不随壁纸明暗变化 —— 这样任何一个位置的字对比度都一致
+   2. 边缘内缩 + 圆角 + 投影 = 悬浮；最外圈渐隐，壁纸从缝里透出来
+   3. 文字纯白 / 近黑，侧栏加粗；选中用 iOS 系统蓝
+   ========================================================================== */
+
+/* ------------------------------------------------------------ 1. 材质变量 */
+
+html[data-tf="on"] body {
+  /* 不透明度越低，材质底色越靠近壁纸平均色 —— 让"调虚实"不改变整体明暗 */
+  --tf-mat-base-mixed: color-mix(
+    in srgb,
+    var(--tf-mat-base) var(--tf-mat-mix, 100%),
+    var(--tf-wall-tint, var(--tf-mat-base))
+  );
+  /* 浅色：固定浅灰 + 深字 */
+  --tf-mat-base: rgb(210 217 229);
+  --tf-mat-a: 0.70;
+  --tf-mat: color-mix(in srgb, var(--tf-mat-base-mixed) calc(var(--tf-mat-a) * 100%), transparent);
+  /* 说话人区分：你=绿，我=蓝，只染 16~18%，保留玻璃感 */
+  --tf-mat-user: color-mix(in srgb, #34c759 17%, var(--tf-mat));
+  --tf-mat-bot: color-mix(in srgb, var(--tf-accent) 14%, var(--tf-mat));
+  --tf-mat-float: color-mix(in srgb, var(--tf-mat-base-mixed) calc(min(1, var(--tf-mat-a) + 0.1) * 100%), transparent);
+  --tf-mat-hover: color-mix(in srgb, var(--tf-mat-base-mixed) calc(min(0.97, var(--tf-mat-a) + 0.16) * 100%), transparent);
+  --tf-mat-bubble: color-mix(in srgb, var(--tf-mat-base-mixed) calc(min(0.98, var(--tf-mat-a) + 0.22) * 100%), transparent);
+  --tf-ink: #10131a;
+  --tf-ink-dim: rgb(16 19 26 / 0.62);
+  --tf-accent: #007aff;
+  --tf-hairline: rgb(15 22 34 / 0.10);
+  --tf-divider: rgb(15 22 34 / 0.10);
+  --tf-shadow: 0 12px 32px -12px rgb(12 18 32 / 0.35);
+  --tf-header-deepen: rgb(0 0 0 / 0.10);
+  --tf-radius-side: 20px;
+  --tf-radius-card: 32px;
+  --tf-gap: 10px;
+  /* 整页型面板（自动化任务 / 插件）那一整块薄面的强度 */
+  --tf-page-veil: 58%;
+}
+
+html[data-tf="on"] body[data-ds-dark-theme] {
+  /* 深色：固定深灰 + 白字 */
+  --tf-mat-base: rgb(22 24 30);
+  --tf-mat-a: 0.50;
+  --tf-mat: color-mix(in srgb, var(--tf-mat-base-mixed) calc(var(--tf-mat-a) * 100%), transparent);
+  --tf-mat-float: color-mix(in srgb, var(--tf-mat-base-mixed) calc(min(1, var(--tf-mat-a) + 0.12) * 100%), transparent);
+  --tf-mat-hover: color-mix(in srgb, var(--tf-mat-base-mixed) calc(min(0.97, var(--tf-mat-a) + 0.18) * 100%), transparent);
+  --tf-mat-bubble: color-mix(in srgb, var(--tf-mat-base-mixed) calc(min(0.98, var(--tf-mat-a) + 0.30) * 100%), transparent);
+  --tf-ink: #ffffff;
+  --tf-ink-dim: rgb(255 255 255 / 0.66);
+  --tf-accent: #0a84ff;
+  --tf-hairline: rgb(255 255 255 / 0.16);
+  --tf-divider: rgb(255 255 255 / 0.14);
+  --tf-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.55);
+}
+
+/* ------------------------------------------------------------ 2. 壁纸层 */
+
+.tf-wall {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  pointer-events: none;
+  overflow: hidden;
+  background: #0a0d14;
+}
+.tf-wall > img,
+.tf-wall > video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ------------------------------------------------------------ 3. 外壳透明 */
+
+html[data-tf="on"] body { background: transparent !important; }
+html[data-tf="on"] [class*="_frame"],
+html[data-tf="on"] [class*="_centerCol"],
+html[data-tf="on"] [class*="_mainPanel"],
+html[data-tf="on"] [class*="_overlayLayer"],
+html[data-tf="on"] [class*="kiGsTW_root"],
+html[data-tf="on"] [class*="_emptyTabHost"] { background: transparent !important; }
+
+/* ------------------------------------------- 4. 侧栏：内缩的悬浮玻璃板 */
+
+html[data-tf="on"] [class*="sidebarCol"] {
+  position: relative;
+  z-index: 3;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--tf-ink);
+}
+
+/* 面板本体：内缩 8px + 圆角 + 投影，四周留出缝隙 */
+html[data-tf="on"] [class*="sidebarCol"]::before {
+  content: "";
+  position: absolute;
+  inset: var(--tf-gap);
+  z-index: -1;
+  border-radius: var(--tf-radius-side, 20px);
+  background-color: var(--tf-mat);
+  /* 大面板：渐变只到 6%→2%，否则会有色带；高光铺开 140%×90% */
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.06) 0%, rgb(255 255 255 / 0) 30%, rgb(0 0 0 / 0.02) 100%);
+  box-shadow:
+    0 -3px 10px -2px rgb(6 12 24 / 0.28),    /* 向上淡影：在顶栏上留下浮起的痕迹 */
+    0 22px 48px -20px rgb(6 12 24 / 0.60),   /* 主投影：压在底下的顶栏上 */
+    0 4px 12px -8px rgb(6 12 24 / 0.30),     /* 接触阴影：贴住底层 */
+    inset 0 3px 0 rgb(255 255 255 / 0.40),
+    inset 0 -2px 0 rgb(0 0 0 / 0.18),
+    inset 0 0 0 1px var(--tf-hairline);
+  pointer-events: none;
+}
+
+/* 顶栏的向左延伸：画在侧栏"面板之下"（::before 是面板，这里更低一层），
+   所以中间部分被面板盖住、只在四周缝隙里露出来 —— 这正是"侧栏在上、顶栏在下"的证据。
+   左端 mask 降到 50%，右端接上主区顶栏（100%），交界处材质浓度一致，不会断开。 */
+html[data-tf="on"] [class*="sidebarCol"]::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: var(--tf-header-h, 40px);
+  z-index: -2;
+  pointer-events: none;
+  background-color: var(--tf-mat-float);
+  background-image: linear-gradient(var(--tf-header-deepen), var(--tf-header-deepen));
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.26),
+    inset 0 -1px 0 var(--tf-divider);
+  /* 暂时不做渐变：整条实心，先把"侧栏压在顶栏上"这个结构立住 */
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* 侧栏内层不要再铺底色 */
+html[data-tf="on"] [class*="kB3qhq_root"] { background: transparent !important; }
+
+/* 文字：跟主题走，侧栏加粗 */
+html[data-tf="on"] [class*="sidebarCol"],
+html[data-tf="on"] [class*="sidebarCol"] * {
+  color: var(--tf-ink);
+}
+html[data-tf="on"] [class*="sidebarCol"] [class*="Label"],
+html[data-tf="on"] [class*="sidebarCol"] [class*="Title"],
+html[data-tf="on"] [class*="sidebarCol"] [class*="panelTitle"] {
+  font-weight: 600;
+}
+html[data-tf="on"] [class*="sidebarCol"] [class*="time"],
+html[data-tf="on"] [class*="sidebarCol"] [class*="Count"] {
+  color: var(--tf-ink-dim);
+}
+
+/* 当前项：只在外圈晕蓝，按钮内部保持玻璃本色 */
+html[data-tf="on"] [class*="sidebarCol"] [aria-selected="true"],
+html[data-tf="on"] [class*="sidebarCol"] [aria-current="true"],
+html[data-tf="on"] [class*="sidebarCol"] [aria-current="page"],
+html[data-tf="on"] [class*="sidebarCol"] [data-state="active"],
+html[data-tf="on"] [class*="sidebarCol"] [class*="panelActive"] {
+  color: var(--tf-accent) !important;
+  background: transparent !important;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--tf-accent) 62%, transparent),
+    inset 0 0 12px -2px color-mix(in srgb, var(--tf-accent) 42%, transparent) !important;
+}
+
+/* 当前项里的次要文字（时间等）也偏蓝，避免一半蓝一半灰 */
+html[data-tf="on"] [class*="sidebarCol"] [aria-selected="true"] *,
+html[data-tf="on"] [class*="sidebarCol"] [aria-current="page"] *,
+html[data-tf="on"] [class*="sidebarCol"] [class*="panelActive"] * {
+  color: color-mix(in srgb, var(--tf-accent) 78%, #ffffff) !important;
+}
+html[data-tf="on"] body[data-ds-dark-theme] [class*="sidebarCol"] [aria-selected="true"] *,
+html[data-tf="on"] body[data-ds-dark-theme] [class*="sidebarCol"] [aria-current="page"] *,
+html[data-tf="on"] body[data-ds-dark-theme] [class*="sidebarCol"] [class*="panelActive"] * {
+  color: color-mix(in srgb, var(--tf-accent) 55%, #ffffff) !important;
+}
+html[data-tf="on"] [class*="sidebarCol"] [aria-selected="true"] svg,
+html[data-tf="on"] [class*="sidebarCol"] [aria-current="true"] svg {
+  color: var(--tf-accent) !important;
+}
+
+/* 滚动渐隐条：DSH 写死了浅色，透明掉 */
+html[data-tf="on"] [class*="sidebarCol"] [class*="_fade"] {
+  background-image: linear-gradient(to bottom, transparent 0%, var(--tf-mat) 100%) !important;
+}
+
+/* ------------------------------------------------ 5. 侧栏控件：小玻璃块 */
+
+html[data-tf="on"] [role="treeitem"],
+html[data-tf="on"] [class*="sidebarCol"] button {
+  transition: background 150ms ease, transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 悬停高亮不作用于"当前项"，否则悬停会把蓝色底色顶掉 */
+html[data-tf="on"] [role="treeitem"]:not([aria-selected="true"]):hover,
+html[data-tf="on"] [class*="sidebarCol"] button:not([aria-current]):not([class*="panelActive"]):hover,
+html[data-tf="on"] [role="menuitem"]:hover {
+  background: var(--tf-mat-float) !important;
+  box-shadow:
+    inset 0 0 0 1px var(--tf-hairline),
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    0 4px 14px -8px rgb(0 0 0 / 0.4) !important;
+  border-radius: 10px;
+}
+html[data-tf="on"] [role="treeitem"]:active,
+html[data-tf="on"] [class*="sidebarCol"] button:active {
+  transform: scale(0.985);
+}
+
+/* 新会话按钮：同样材质，稍亮一点 */
+html[data-tf="on"] [class*="newSession"] {
+  background: var(--tf-mat-float) !important;
+  border: none !important;
+  outline: none !important;
+  /* 圆角对齐侧栏面板 */
+  border-radius: var(--tf-radius-side, 20px) !important;
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.36),
+    inset 0 -1px 0 rgb(0 0 0 / 0.14),
+    inset 0 0 0 1px var(--tf-hairline),
+    0 8px 18px -16px rgb(8 14 26 / 0.5) !important;
+  color: var(--tf-ink) !important;
+}
+html[data-tf="on"] [class*="newSession"] *,
+html[data-tf="on"] [class*="newSession"] *::before,
+html[data-tf="on"] [class*="newSession"] *::after {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 顶栏已经是一整块材质，里面的控件不要再叠一层自己的底色 */
+html[data-tf="on"] [class*="kiGsTW_header"] button,
+html[data-tf="on"] [class*="kiGsTW_header"] [class*="menuAnchor"],
+html[data-tf="on"] [class*="kiGsTW_header"] [class*="seat"],
+html[data-tf="on"] [class*="headerCorner"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* 悬停时给一点点反馈，但不要方块 */
+html[data-tf="on"] [class*="kiGsTW_header"] button:hover,
+html[data-tf="on"] [class*="kiGsTW_header"] [class*="seat"]:hover {
+  background: rgb(255 255 255 / 0.07) !important;
+  border-radius: 8px;
+}
+
+/* ------------------------------------------------------- 6. 正文阅读带 */
+
+.tf-band {
+  display: none !important; /* 已改用消息气泡承载，带子停用 */
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 0 0 var(--tf-radius-band, 48px) var(--tf-radius-band, 48px);
+  corner-shape: squircle;
+  background: var(--tf-mat);
+  box-shadow:
+    var(--tf-shadow),
+    inset 0 0 0 1px var(--tf-hairline);
+  /* 只柔化左右两侧；上下必须是硬边 —— 顶边要"紧贴"顶栏，底边要露出圆角 */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+
+/* 正文文字 */
+html[data-tf="on"] [class*="kiGsTW_root"] { color: var(--tf-ink); }
+
+/* ------------------------------------------------------- 7. 输入框 */
+
+html[data-tf="on"] [data-composer-card] {
+  background-color: var(--tf-mat-float) !important;
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.10) 0%, rgb(255 255 255 / 0) 32%, rgb(0 0 0 / 0.04) 100%);
+  border: none !important;
+  border-radius: var(--tf-radius-card, 32px) !important;
+  corner-shape: squircle;
+  /* 输入区背后的内容要"推远"，否则字上叠字会干扰输入 */
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  box-shadow:
+    0 16px 34px -20px rgb(8 14 26 / 0.55),
+    inset 0 2px 0 rgb(255 255 255 / 0.36),
+    inset 0 -2px 0 rgb(0 0 0 / 0.16),
+    inset 0 0 0 1px var(--tf-hairline) !important;
+  transition: box-shadow 220ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-tf="on"] [data-composer-card]:focus-within {
+  transform: translateY(-1px);
+  box-shadow:
+    var(--tf-shadow),
+    inset 0 0 0 1px var(--tf-hairline),
+    0 0 0 3px color-mix(in srgb, var(--tf-accent) 35%, transparent) !important;
+}
+
+/* 顶栏跟随材质；下沿加一条 1px 细线，把阅读带的"上边界"收归顶栏 */
+html[data-tf="on"] [data-slot="conversation.header"],
+html[data-tf="on"] [data-slot="conversation.session.header"],
+/* 顶栏：主区这一段是实心的 */
+html[data-tf="on"] [class*="kiGsTW_header"]:not([class*="headerCorner"]):not([class*="headerUtilities"]):not([class*="headerActions"]) {
+  color: var(--tf-ink);
+  /* 比侧栏更实 + 更深：浓度和颜色双错开，暗壁纸上也读得出"底下还有一层" */
+  background-color: var(--tf-mat-float) !important;
+  background-image: linear-gradient(var(--tf-header-deepen), var(--tf-header-deepen)) !important;
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.26),
+    inset 0 -1px 0 var(--tf-divider) !important;
+}
+
+/* 右侧栏面板：给一块底面，否则窗口透明后这块没有任何材质。
+   只改 background-color —— 不碰 position（满屏形态靠 DSH 自己的定位），
+   不加 backdrop-filter（收起时它仍占着原矩形，filter 会把背后整片吃掉）。 */
+/* 面板只有展开时才需要面：收起时它那块矩形仍在（列宽 0 也照样挂到
+   right: 0，width 是内联的 648px），原生靠"面板没底色"看不出来，
+   我们一补就会在右半边压出一层。用它自己的 open 属性做开关最准。 */
+html[data-tf="on"] [data-sidebar-right-panel][data-sidebar-right-open] {
+  background-color: var(--tf-mat-float);
+}
+
+/* 满屏：width 被内联成 100vw，盖住整窗。
+   原生看起来是实心的，是因为被盖住的 centerCol / rightbarCol 自带
+   --dsw-alias-bg-base（我们在插件里把它们做透明了，为了露壁纸）。
+   所以这里由面板自己补一层实心面；壁纸在满屏时消失，这是接受的取舍。
+   z-index 60：原生 .sidebarCol 没有 z-index，天然被面板盖住；
+   我们的侧栏为了压住顶栏有 z-index: 3，必须把面板提到它之上。 */
+html[data-tf="on"] [data-sidebar-right-panel="fullscreen"][data-sidebar-right-open] {
+  background-color: var(--tf-mat-base-mixed);
+  z-index: 60;
+}
+
+/* 右侧栏顶部：和主顶栏同高同材质，拼成一条贯通的横带。
+   注意 data-sidebar-right-open 是真实存在的（源码 sidebar-right 组件
+   `data-sidebar-right-open={expanded || undefined}`），展开时才有；
+   面板本身是 position:absolute，::before 直接以它为定位祖先。 */
+html[data-tf="on"] [data-sidebar-right-panel][data-sidebar-right-open]::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: var(--tf-header-h, 40px);
+  pointer-events: none;
+  background-color: var(--tf-mat-float);
+  background-image: linear-gradient(var(--tf-header-deepen), var(--tf-header-deepen));
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.26),
+    inset 0 -1px 0 var(--tf-divider);
+}
+
+/* 空面板正中的指南针（huge hero icon）。
+   原生给它的是 rgb(229,229,229) / rgb(60,60,61) —— 两个值都是配着 DSH
+   自己的整窗底色定的；我们的材质明暗不同，深色下它就成了一块深灰、
+   浅色下又近白。改成跟 --tf-ink 同源，两端都按同一比例退到背景之后。
+   用 [class$="_hero"] 精确匹配类名结尾，避免命中 heroWorkspaceRow 之类。 */
+html[data-tf="on"] [class$="_hero"] svg,
+html[data-tf="on"] [class*="_hero "] svg {
+  color: color-mix(in srgb, var(--tf-ink) 66%, transparent);
+}
+
+/* 右侧栏里的工具卡：和输入框同一套材质 */
+html[data-tf="on"] button[class*="_entry"],
+html[data-tf="on"] div[class*="_entry"],
+html[data-tf="on"] [class*="entryCell"] > button {
+  background: var(--tf-mat-float) !important;
+  border: none !important;
+  border-radius: 20px !important;
+  box-shadow:
+    inset 0 0 0 1px var(--tf-hairline),
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    0 8px 20px -14px rgb(10 20 40 / 0.5) !important;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-tf="on"] button[class*="_entry"]:hover,
+html[data-tf="on"] div[class*="_entry"]:hover,
+html[data-tf="on"] [class*="entryCell"] > button:hover {
+  background: var(--tf-mat-hover) !important;
+  transform: translateY(-1px);
+}
+html[data-tf="on"] button[class*="_entry"]:active,
+html[data-tf="on"] div[class*="_entry"]:active,
+html[data-tf="on"] [class*="entryCell"] > button:active {
+  transform: scale(0.99);
+}
+
+/* 右侧的文件导航面板：整个 aside 是透明的，文字直接压在壁纸上 */
+html[data-tf="on"] aside[class*="_navigator"],
+html[data-tf="on"] [class*="_navigator"][class*="wholePage"] {
+  /* 文字面板：比阅读带更实一点，否则文件名压在亮壁纸上看不清 */
+  background: var(--tf-mat-hover) !important;
+  box-shadow: inset 1px 0 0 var(--tf-divider) !important;
+}
+
+/* 文件列表的悬停高亮：DSH 自带那条太白太淡，压不住壁纸 */
+html[data-tf="on"] aside[class*="_navigator"] li:hover,
+html[data-tf="on"] aside[class*="_navigator"] [class*="_item"]:hover,
+html[data-tf="on"] aside[class*="_navigator"] [class*="_row"]:hover {
+  background: color-mix(in srgb, var(--tf-ink) 16%, transparent) !important;
+  border-radius: 8px;
+}
+
+/* 代码/文件预览页：透明的页面容器里放了代码块，字会直接压在壁纸上 */
+html[data-tf="on"] [class*="_page"]:has(pre),
+html[data-tf="on"] [class*="_content"]:has(pre),
+html[data-tf="on"] [class*="_viewer"]:has(pre),
+html[data-tf="on"] [class*="_preview"]:has(pre),
+html[data-tf="on"] [class*="_code"]:has(pre),
+html[data-tf="on"] [class*="codeView"],
+html[data-tf="on"] [class*="fileView"],
+html[data-tf="on"] [class*="fullPage"],
+html[data-tf="on"] [class*="monaco-editor"],
+html[data-tf="on"] [class*="CodeMirror"] {
+  background: var(--tf-mat-hover) !important;
+}
+
+/* 代码块本身不要再叠一层，否则会双重变深 */
+html[data-tf="on"] [class*="_page"]:has(pre) pre,
+html[data-tf="on"] [class*="_content"]:has(pre) pre {
+  background: transparent !important;
+}
+
+/* 右侧活动栏的标签页：未选中=小玻璃片，选中=左侧栏那套蓝 */
+html[data-tf="on"] [class*="_tabStrip"] [role="tab"] {
+  background: var(--tf-mat-float) !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 0 0 1px var(--tf-hairline) !important;
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+html[data-tf="on"] [class*="_tabStrip"] [role="tab"]:hover {
+  background: var(--tf-mat-hover) !important;
+}
+html[data-tf="on"] [class*="_tabStrip"] [role="tab"][aria-selected="true"] {
+  /* 不整块染蓝：保持玻璃本体，只在外圈晕一层蓝（和输入框聚焦一致） */
+  background: var(--tf-mat-float) !important;
+  /* 外发光会被标签栏上下裁掉（左右宽、上下窄），改成内晕 + 等距描边 */
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--tf-accent) 62%, transparent),
+    inset 0 0 12px -2px color-mix(in srgb, var(--tf-accent) 42%, transparent),
+    0 0 0 1.5px color-mix(in srgb, var(--tf-accent) 18%, transparent) !important;
+  color: var(--tf-accent) !important;
+}
+html[data-tf="on"] [class*="_tabStrip"] [role="tab"][aria-selected="true"] * {
+  color: var(--tf-accent) !important;
+}
+
+/* ------------------------------------------------------- 8. 浮层 / 模态 */
+
+html[data-tf="on"] [role="menu"],
+html[data-tf="on"] [data-menu-material="translucent"] {
+  corner-shape: squircle;
+  --dsw-menu-surface-fill: var(--tf-mat-float);
+  --dsw-menu-backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: inset 0 0 0 1px var(--tf-hairline), var(--tf-shadow);
+}
+
+html[data-tf="on"] [role="dialog"][aria-modal="true"] {
+  corner-shape: squircle;
+  background: var(--tf-mat-float) !important;
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: inset 0 0 0 1px var(--tf-hairline), var(--tf-shadow);
+}
+
+/* ------------------------------------------------------- 9. 降级 */
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-tf="on"] body { --tf-mat: rgb(246 247 249 / 0.94); }
+  html[data-tf="on"] body[data-ds-dark-theme] { --tf-mat: rgb(22 24 30 / 0.94); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-tf="on"] [data-composer-card],
+  html[data-tf="on"] [role="treeitem"] { transition: none; }
+}
+
+/* ------------------------------------------------ 10. 壁纸网格的交互 */
+
+.tf-cell { position: relative; }
+.tf-cell img,
+.tf-cell video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* 删除按钮：悬停才出现，避免每格都挂个红叉 */
+.tf-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  line-height: 1;
+  color: #fff;
+  background: rgb(10 14 22 / 0.72);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 120ms ease, transform 120ms ease, background 120ms ease;
+}
+.tf-cell:hover .tf-del { opacity: 1; transform: scale(1); }
+.tf-del:hover { background: #e5484d; }
+
+/* 当前使用的标记 */
+.tf-badge {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #fff;
+  background: rgb(10 14 22 / 0.62);
+  backdrop-filter: blur(6px);
+}
+
+
+/* 对话区 / 输入框里的"三级文字"：DSH 用 #81858c，那是给不透明底配的，
+   压在玻璃上就淡了。在**这两个范围内**把 token 换成墨色 ——
+   代码块标题同理受益（它的底是近白，深字更清楚）。
+   不全局改，是因为设置窗口、浮层等区域各自有自己的底。 */
+html[data-tf="on"] [class*="kiGsTW_root"],
+html[data-tf="on"] [data-composer-card] {
+  --dsw-alias-label-tertiary: color-mix(in srgb, var(--tf-ink) 72%, transparent);
+  --dsw-alias-label-secondary: color-mix(in srgb, var(--tf-ink) 84%, transparent);
+}
+
+/* 输入框右下角的推理等级（High / Max）：另一档硬编码灰，压在玻璃上同样偏淡 */
+html[data-tf="on"] [class*="triggerEffort"] {
+  color: color-mix(in srgb, var(--tf-ink) 64%, transparent) !important;
+}
+
+/* ------------------------------------------------ 11. 消息气泡 */
+
+html[data-tf="on"] [data-message-bubble] {
+  background-color: var(--tf-mat-user) !important;
+  /* 体积感：上亮下暗的极轻渐变 + 左上角一点高光 */
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.13) 0%, rgb(255 255 255 / 0) 28%, rgb(0 0 0 / 0.05) 100%);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.32),      /* 顶部亮线，加粗提亮 */
+    inset 0 -2px 0 rgb(0 0 0 / 0.20),           /* 底部暗线 = 厚度 */
+    inset 0 0 0 1px var(--tf-hairline),
+    0 26px 62px -26px rgb(6 12 24 / 0.80),      /* 主投影：加重 + 扩散 */
+    0 6px 16px -9px rgb(6 12 24 / 0.5) !important;
+  border: none !important;
+  border-radius: 20px !important;
+  padding: 14px 18px !important;
+}
+
+
+/* 助手回复：正文块本身就是一整段，直接当气泡 */
+html[data-tf="on"] [class*="_markdown_"]:not([data-message-bubble] *) {
+  background-color: var(--tf-mat-bot) !important;
+  /* 体积感：上亮下暗的极轻渐变 + 左上角一点高光 */
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.13) 0%, rgb(255 255 255 / 0) 28%, rgb(0 0 0 / 0.05) 100%);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.32),      /* 顶部亮线，加粗提亮 */
+    inset 0 -2px 0 rgb(0 0 0 / 0.20),           /* 底部暗线 = 厚度 */
+    inset 0 0 0 1px var(--tf-hairline),
+    0 26px 62px -26px rgb(6 12 24 / 0.80),      /* 主投影：加重 + 扩散 */
+    0 6px 16px -9px rgb(6 12 24 / 0.5) !important;
+  border-radius: 20px !important;
+  padding: 14px 18px !important;
+}
+
+
+/* ------------------------------------------------ 14. 思考过程：贴地的柔边区域
+
+   层级靠"边缘锐度"表达，不靠投影：
+     · 气泡 —— 硬边 + 顶部亮线 + 投影 → 浮在上面
+     · 思考行 —— 四边羽化、无描边、无投影 → 贴在地面
+   羽化用 mask 而不是 filter: blur()：一屏几十条时 blur 会各建一个合成层，
+   mask 是纯合成，几乎无开销。 */
+
+html[data-tf="on"] [class*="r52wTW_root"],
+html[data-tf="on"] [data-chat-flow-kind="turn-process"] {
+  position: relative;
+  isolation: isolate;
+}
+
+html[data-tf="on"] [class*="r52wTW_root"]::before,
+html[data-tf="on"] [data-chat-flow-kind="turn-process"]::before {
+  content: "";
+  position: absolute;
+  inset: -4px -12px;
+  z-index: -1;
+  border-radius: 14px;
+  /* 不用 backdrop-filter：每条思考行都会建合成层，一屏几十条时真机 GPU 压力不可控。
+     改用足够实的底色把壁纸纹理盖住 —— mask 是纯合成，零额外层。 */
+  background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 80%, transparent);
+  /* 左右 14px / 上下 6px 羽化；上下严格小于行距的一半，避免相邻行连成一片 */
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 6px, #000 calc(100% - 6px), transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 6px, #000 calc(100% - 6px), transparent 100%);
+  mask-composite: intersect;
+  pointer-events: none;
+}
+
+/* 折叠状态只有"思考"两个字，羽化后几乎看不见 → 给一个最小可视宽度 */
+html[data-tf="on"] [class*="r52wTW_title"] {
+  min-width: 76px;
+}
+
+/* 状态行（已完成，用时…）原本是硬边胶囊，改成同一套柔边，避免两种语言并存 */
+html[data-tf="on"] [data-chat-flow-kind="turn-process"] [class*="summary"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none !important;
+  box-shadow: none !important;
+  padding: 5px 12px;
+}
+/* 外层已经有一块底，里面的 endInfo 不要再叠一层 */
+html[data-tf="on"] [class*="scrollBody"] [class*="endInfo"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+
+/* 状态行没有盒子可刷底，那就把文字本身提到正文墨色，保证可读 */
+html[data-tf="on"] [data-chat-flow-kind] [class*="summary"],
+html[data-tf="on"] [data-chat-flow-kind] [class*="_text_"],
+html[data-tf="on"] [class*="thinking"],
+html[data-tf="on"] [class*="reasoning"],
+html[data-tf="on"] [class*="thought"],
+html[data-tf="on"] [class*="process"] {
+  color: var(--tf-ink) !important;
+  opacity: 1 !important;
+}
+html[data-tf="on"] [data-chat-flow-kind] [class*="summary"] svg,
+html[data-tf="on"] [data-chat-flow-kind] [class*="_row_"] svg {
+  color: var(--tf-ink) !important;
+  opacity: 0.9 !important;
+}
+
+
+/* 消息底部那排操作（复制/赞/踩/用量/时间）：也给它一块小玻璃 */
+html[data-tf="on"] [class*="scrollBody"] [class*="_actions"] {
+  background-color: var(--tf-mat-bubble) !important;
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.10) 0%, rgb(255 255 255 / 0) 30%, rgb(0 0 0 / 0.04) 100%);
+  border-radius: 12px !important;
+  padding: 3px 10px !important;
+  width: fit-content !important;
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.34),
+    inset 0 -1px 0 rgb(0 0 0 / 0.16),
+    inset 0 0 0 1px var(--tf-hairline),
+    0 10px 22px -16px rgb(6 12 24 / 0.55) !important;
+}
+
+
+/* 动作栏 / 状态胶囊里的文字和图标：提到正文墨色，去掉衰减 */
+html[data-tf="on"] [class*="scrollBody"] [class*="_actions"],
+html[data-tf="on"] [class*="scrollBody"] [class*="_actions"] *,
+html[data-tf="on"] [data-chat-flow-kind="turn-process"],
+html[data-tf="on"] [data-chat-flow-kind="turn-process"] * {
+  color: var(--tf-ink) !important;
+  opacity: 1 !important;
+}
+html[data-tf="on"] [class*="scrollBody"] [class*="_actions"] svg,
+html[data-tf="on"] [data-chat-flow-kind="turn-process"] svg {
+  color: var(--tf-ink) !important;
+  opacity: 0.88 !important;
+  stroke: currentColor;
+}
+
+
+/* 顶栏里的次级文字（标准模式 / 后台任务 / 轨迹 / …）：提高对比度 */
+html[data-tf="on"] [class*="headerActions"] *,
+html[data-tf="on"] [class*="kiGsTW_header"] [class*="seat"],
+html[data-tf="on"] [class*="kiGsTW_header"] [class*="seatLabel"] {
+  color: var(--tf-ink) !important;
+  opacity: 1 !important;
+}
+html[data-tf="on"] [class*="headerActions"] svg,
+html[data-tf="on"] [class*="kiGsTW_header"] [class*="seat"] svg {
+  color: var(--tf-ink) !important;
+  opacity: 0.8 !important;
+}
+
+/* 未选中的标签页（轨迹 / 对话切换）也不要太灰 */
+html[data-tf="on"] [role="tablist"] [role="tab"]:not([aria-selected="true"]),
+html[data-tf="on"] [role="tablist"] [role="tab"]:not([aria-selected="true"]) * {
+  color: color-mix(in srgb, var(--tf-ink) 82%, transparent) !important;
+  opacity: 1 !important;
+}
+
+
+/* 输入框占位文字：跟着墨色走，否则深色玻璃上那串固定的中灰会糊掉 */
+html[data-tf="on"] [data-composer-card] [class*="placeholder"],
+html[data-tf="on"] [data-composer-card] textarea::placeholder,
+html[data-tf="on"] [data-composer-card] input::placeholder {
+  color: var(--tf-ink) !important;
+  opacity: 0.58 !important;
+}
+
+
+/* 壁纸库里的视频标记 */
+.tf-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  color: #fff;
+  background: rgb(10 14 22 / 0.55);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+.tf-dur {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: rgb(10 14 22 / 0.62);
+  pointer-events: none;
+}
+.tf-kind {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  color: #fff;
+  background: rgb(10 14 22 / 0.55);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+
+/* README.md 这类文件用的是大图资源、没有尺寸上限，会撑成大方块。
+   用 max-* 而不是固定 width：只压"过大的"，本来正常的图标一点不受影响。 */
+html[data-tf="on"] [class*="_navigator"] li img,
+html[data-tf="on"] [class*="_navigator"] li svg,
+html[data-tf="on"] [class*="_navigator"] li canvas,
+html[data-tf="on"] [class*="_navigator"] li [class*="fileIcon"],
+html[data-tf="on"] [class*="_navigator"] li [class*="_icon_"] {
+  max-width: 22px !important;
+  max-height: 22px !important;
+  flex: none !important;
+  object-fit: contain !important;
+}
+
+
+/* ------------------------------------------- 12. 设置窗口：整体玻璃化 */
+
+/* 对话框本体：和控制档同一套厚度 */
+html[data-tf="on"] [role="dialog"][aria-modal="true"] {
+  background-color: var(--tf-mat-float) !important;
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.10) 0%, rgb(255 255 255 / 0) 24%, rgb(0 0 0 / 0.03) 100%) !important;
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.32),
+    inset 0 -1px 0 rgb(0 0 0 / 0.14),
+    inset 0 0 0 1px var(--tf-hairline),
+    0 24px 60px -30px rgb(6 12 24 / 0.7) !important;
+}
+
+/* 左侧导航：未选中透明，悬停一层玻璃，选中用左侧栏那套蓝圈 */
+html[data-tf="on"] [role="dialog"] [class*="_navCell"] {
+  background: transparent !important;
+  border-radius: 10px !important;
+  transition: background 140ms ease, box-shadow 140ms ease;
+}
+html[data-tf="on"] [role="dialog"] [class*="_navCell"]:hover {
+  background: var(--tf-mat-hover) !important;
+}
+html[data-tf="on"] [role="dialog"] [class*="_navCell"][class*="_active"],
+html[data-tf="on"] [role="dialog"] [class*="_navCell"][aria-current="page"] {
+  background: transparent !important;
+  color: var(--tf-accent) !important;
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--tf-accent) 60%, transparent),
+    inset 0 0 12px -2px color-mix(in srgb, var(--tf-accent) 40%, transparent) !important;
+}
+
+/* 设置对话框整体：覆盖 DSH 的次级文字 token。
+   对话框内所有分区（通用 / 模型 / Agent 预设 / 插件市场…）都用这两个 token
+   表示说明文字，逐个类名补会一直漏，直接在容器上换掉最稳。
+   对话框内部没有深色内容区，这条覆盖是安全的；语义色（蓝/绿/金）是硬编码的，不受影响。 */
+html[data-tf="on"] [role="dialog"] {
+  --dsw-alias-label-tertiary: color-mix(in srgb, var(--tf-ink) 70%, transparent);
+  --dsw-alias-label-secondary: color-mix(in srgb, var(--tf-ink) 84%, transparent);
+}
+
+/* Agent 预设卡片：内部的分区容器（cardFoot 等）是方角，
+   会被卡片的 20px 圆角顶出来。让卡片裁掉内部溢出即可。 */
+html[data-tf="on"] [role="dialog"] [class*="gdzZCG_card"] {
+  overflow: hidden;
+}
+html[data-tf="on"] [role="dialog"] [class*="gdzZCG_cardFoot"] {
+  border-radius: 0 0 20px 20px;
+}
+
+/* 设置窗口里的说明文字：DSH 把它们写死成 rgb(129,133,140)，
+   压在玻璃上就看不见了。统一换成跟着表面亮度走的墨色。 */
+html[data-tf="on"] [role="dialog"] [class*="_desc"],
+html[data-tf="on"] [role="dialog"] [class*="Description"],
+html[data-tf="on"] [role="dialog"] [class*="settingDesc"] {
+  color: color-mix(in srgb, var(--tf-ink) 74%, transparent) !important;
+}
+
+/* 插件市场：整块是硬编码的 Tailwind 灰（#6b7280 / #8b93a1），压在玻璃上看不清。
+   只提亮中性灰；蓝色分类、绿色已验证、金色星数等语义色一律不动。
+   选中态 tab（qikqja_tabActive）是白字黑胶囊，必须排除。 */
+html[data-tf="on"] [role="dialog"] [class*="qikqja_tab"]:not([class*="Active"]):not([class*="Count"]),
+html[data-tf="on"] [role="dialog"] [class*="qikqja_segBtn"],
+html[data-tf="on"] [role="dialog"] [class*="qikqja_segLabel"],
+html[data-tf="on"] [role="dialog"] [class*="qikqja_versionBtn"],
+html[data-tf="on"] [role="dialog"] [class*="qikqja_langBtn"],
+html[data-tf="on"] [role="dialog"] [class*="qikqja_aboutBtn"],
+html[data-tf="on"] [role="dialog"] [class*="qikqja_tagline"],
+html[data-tf="on"] [role="dialog"] [class*="qikqja_resultCount"],
+html[data-tf="on"] [role="dialog"] [class*="XaZHa_topic"],
+html[data-tf="on"] [role="dialog"] [class*="XaZHa_authorBadge"],
+html[data-tf="on"] [role="dialog"] [class*="XaZHa_fork"],
+html[data-tf="on"] [role="dialog"] [class*="XaZHa_date"],
+html[data-tf="on"] [role="dialog"] [class*="XaZHa_detailBtn"],
+html[data-tf="on"] [role="dialog"] [class*="XaZHa_versionBadge"] {
+  color: color-mix(in srgb, var(--tf-ink) 70%, transparent) !important;
+}
+
+/* 插件市场的搜索框占位文字 */
+html[data-tf="on"] [role="dialog"] [class*="qikqja_root"] input::placeholder {
+  color: color-mix(in srgb, var(--tf-ink) 58%, transparent) !important;
+}
+
+/* 分区里的卡片（账号余额、模型卡等）：也给材质 */
+/* 只匹配「恰好有 _card 这个类」的元素：
+   [class$="_card"] 覆盖单类名，[class*="_card "] 覆盖后面还跟着其它类的情况。
+   这样 gdzZCG_cardIdentity / uuMOda_cardContent / xxx_cards 这类子元素都不会被误伤。 */
+html[data-tf="on"] [role="dialog"] [class$="_card"],
+html[data-tf="on"] [role="dialog"] [class*="_card "],
+html[data-tf="on"] [role="dialog"] [class*="balanceCard"] {
+  background-color: var(--tf-mat-float) !important;
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(0 0 0 / 0.02)) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.26),
+    inset 0 0 0 1px var(--tf-hairline) !important;
+}
+
+/* ------------------------------------------------ 13. 插件页 */
+
+/* 「发现」tab 的骨架屏：原本是 rgba(0,0,0,.04)，压在玻璃上会发暗 */
+html[data-tf="on"] [class*="nLFHAG_skeleton"] {
+  background-color: rgb(255 255 255 / 0.16) !important;
+}
+
+/* 「发现」tab 的搜索框：原生是纯白实心，和玻璃风格冲突 */
+html[data-tf="on"] [class*="nLFHAG_search"] {
+  background-color: var(--tf-mat-float) !important;
+  border-color: var(--tf-hairline) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22) !important;
+}
+
+/* 分类胶囊：未选中半透明白，选中更实一档（保持原生"选中更实"的语义） */
+html[data-tf="on"] [class*="nLFHAG_section"] [class*="_pill_"] {
+  background-color: rgb(255 255 255 / 0.14) !important;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16) !important;
+  color: var(--tf-ink) !important;
+}
+html[data-tf="on"] [class*="nLFHAG_section"] [class*="_pill_"][class*="_active_"] {
+  background-color: rgb(255 255 255 / 0.34) !important;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.36) !important;
+}
+
+/* 整页一块薄面：和「自动化任务」同一个做法。
+   注意用 [class$=...] 精确匹配页根，否则 pageBody / pageBar / pageHead /
+   pageTabs 这些同前缀的类会被一起匹配到。 */
+html[data-tf="on"] [class$="w6M7KW_page"],
+html[data-tf="on"] [class*="w6M7KW_page "] {
+  background-color: color-mix(in srgb, var(--tf-mat-base-mixed) var(--tf-page-veil), transparent);
+  color: var(--tf-ink);
+}
+
+/* 文字：整页覆盖次级/三级 token（DSH 用 #81858c / #61666b，压在壁纸上就没了） */
+html[data-tf="on"] [class*="w6M7KW_page"] {
+  --dsw-alias-label-tertiary: color-mix(in srgb, var(--tf-ink) 70%, transparent);
+  --dsw-alias-label-secondary: color-mix(in srgb, var(--tf-ink) 84%, transparent);
+}
+
+/* 页头：并进页面这一整块里。
+   原来给了它独立的 0.8 材质 + 模糊，结果顶部一横条比下面亮一档，
+   整页被切成两块。半透明吸顶栏没法同时做到"不露滚动内容"和"没有接缝"，
+   所以这里放弃吸顶：整页一块面，标题和标签跟着内容一起走。
+   （参考的自动化任务页本来也是这个行为。） */
+html[data-tf="on"] [class*="w6M7KW_pageBar"] {
+  position: static !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 分组标题：页面已经是一整块面，标题不再需要自己垫底，直接跟着页面走字。 */
+
+/* 每一组（标题 + 行）成一整块玻璃。
+   「已安装」用 w6M7KW_group（section），「发现」用 nLFHAG_section（div）——
+   标签不同，所以选择器不能带标签前缀。 */
+html[data-tf="on"] [class$="w6M7KW_group"],
+html[data-tf="on"] [class*="w6M7KW_group "],
+html[data-tf="on"] [class$="nLFHAG_section"],
+html[data-tf="on"] [class*="nLFHAG_section "] {
+  position: relative;
+  /* 层级：页面最暗 < 组块亮一档 < 滑块最亮。
+     所以这里不是再叠一块深色材质（那样会比页面更暗），
+     而是在页面上压一层白光膜。 */
+  background-color: rgb(255 255 255 / 0.13);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.10), rgb(255 255 255 / 0.01));
+  border-radius: 16px;
+  padding: 2px 10px 10px;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.22),
+    inset 0 1px 0 rgb(255 255 255 / 0.30),
+    0 12px 30px -26px rgb(8 14 26 / 0.45);
+}
+
+/* 列表：不再自成面板，滑动的玻璃块由 JS 放进组里 */
+html[data-tf="on"] ul[class*="w6M7KW_cards"],
+html[data-tf="on"] ul[class*="nLFHAG_cards"] {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+/* 悬停时的滑动玻璃块：一块，位置由 JS 推到当前行。
+   不能直接用材质色 —— 组块本身就是材质，滑块会和底一样看不出来。
+   所以它是一层"白光膜"：浅色下用较高白度（像 iOS 选中的白色胶囊），
+   深色下用较低白度（提亮一档即可，太高会吃掉白字的对比）。 */
+.tf-row-glide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 12px;
+  opacity: 0;
+  background-color: rgb(255 255 255 / 0.46);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.30), rgb(255 255 255 / 0.06));
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.60),
+    inset 0 1px 0 rgb(255 255 255 / 0.90),
+    0 10px 22px -16px rgb(8 14 26 / 0.35);
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 150ms ease;
+}
+html[data-tf="on"] body[data-ds-dark-theme] .tf-row-glide {
+  background-color: rgb(255 255 255 / 0.26);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.03));
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.26),
+    inset 0 1px 0 rgb(255 255 255 / 0.38),
+    0 10px 22px -16px rgb(0 0 0 / 0.55);
+}
+
+/* 行本身透明，只保留悬停反馈 */
+html[data-tf="on"] li[class*="w6M7KW_card"],
+html[data-tf="on"] li[class*="nLFHAG_card"] {
+  position: relative;
+  z-index: 1;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+/* 悬停底色交给滑动块，行自己不再变色 */
+html[data-tf="on"] li[class*="w6M7KW_card"]:hover,
+html[data-tf="on"] li[class*="nLFHAG_card"]:hover {
+  background-color: transparent !important;
+}
+
+/* 行分隔线：从文字处开始内缩，不贯穿全宽（iOS 分组列表的做法） */
+html[data-tf="on"] li[class*="w6M7KW_card"],
+html[data-tf="on"] li[class*="nLFHAG_card"] {
+  position: relative;
+}
+html[data-tf="on"] li[class*="w6M7KW_card"] + li[class*="w6M7KW_card"]::before,
+html[data-tf="on"] li[class*="nLFHAG_card"] + li[class*="nLFHAG_card"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 68px;
+  right: 0;
+  height: 1px;
+  background: var(--tf-divider);
+  pointer-events: none;
+}
+
+/* ------------------------------------------- 15. 整页面板：自动化任务
+
+   这类页面不是对话，没有气泡承载材质，整片直接压在壁纸上：
+   标题、筛选、搜索框、空状态、按钮全是裸的。
+   分两层处理：页面给一层薄面压住壁纸噪声，控件各自给玻璃。 */
+
+html[data-tf="on"] section[class*="CDG4uW_page"] {
+  background-color: color-mix(in srgb, var(--tf-mat-base-mixed) var(--tf-page-veil), transparent);
+  color: var(--tf-ink);
+}
+
+html[data-tf="on"] [class*="CDG4uW_pageHeading"] h1 {
+  color: var(--tf-ink);
+}
+
+/* 筛选：一颗通体胶囊，选中项自己再浮一层 */
+html[data-tf="on"] [class*="CDG4uW_filterTabs"] {
+  background-color: var(--tf-mat-float) !important;
+  border-radius: 999px;
+  padding: 2px;
+  box-shadow:
+    inset 0 0 0 1px var(--tf-hairline),
+    inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+/* 注意：不能用 [class*="..._filterTab"] —— 子串会把容器 _filterTabs 一起匹配到 */
+html[data-tf="on"] [class$="CDG4uW_filterTab"],
+html[data-tf="on"] [class*="CDG4uW_filterTab "] {
+  background: transparent !important;
+  border-radius: 999px !important;
+  color: var(--tf-ink-dim);
+}
+html[data-tf="on"] [class*="CDG4uW_filterTabActive"] {
+  background-color: var(--tf-mat-bubble) !important;
+  color: var(--tf-ink) !important;
+  box-shadow:
+    inset 0 0 0 1px var(--tf-hairline),
+    inset 0 1px 0 rgb(255 255 255 / 0.28);
+}
+
+/* 搜索框 */
+html[data-tf="on"] [class*="CDG4uW_searchField"] {
+  background-color: var(--tf-mat-float);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 0 0 1px var(--tf-hairline),
+    inset 0 1px 0 rgb(255 255 255 / 0.20);
+}
+html[data-tf="on"] [class*="CDG4uW_searchField"] input {
+  color: var(--tf-ink) !important;
+  background: transparent !important;
+}
+html[data-tf="on"] [class*="CDG4uW_searchField"] input::placeholder {
+  color: var(--tf-ink-dim) !important;
+}
+
+/* 空状态：插画退到背景之后，文字保持可读 */
+html[data-tf="on"] [class*="CDG4uW_empty"] svg {
+  color: color-mix(in srgb, var(--tf-ink) 32%, transparent);
+}
+html[data-tf="on"] [class*="CDG4uW_empty"] h2 {
+  color: var(--tf-ink-dim);
+}
+
+/* 按钮 */
+html[data-tf="on"] [class*="CDG4uW_creationActions"] button,
+html[data-tf="on"] [class*="CDG4uW_empty"] button {
+  border-radius: 10px !important;
+  box-shadow:
+    inset 0 0 0 1px var(--tf-hairline),
+    inset 0 1px 0 rgb(255 255 255 / 0.20),
+    0 6px 16px -12px rgb(8 14 26 / 0.5) !important;
+}
+html[data-tf="on"] [class*="CDG4uW_empty"] button {
+  background-color: var(--tf-mat-float) !important;
+  color: var(--tf-ink) !important;
+}

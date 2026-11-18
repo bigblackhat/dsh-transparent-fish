@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Transparent Fish",
+    "description": "Liquid glass for DeepSeek Harness that follows your wallpaper. Local wallpaper library for images and videos, layered materials across the sidebar, composer, message bubbles and settings, ink that flips between dark and light based on the composited surface, and automatic light/dark theme switching per wallpaper. Wallpapers stay on this machine (~/.dsh/transparent-fish); nothing is uploaded. Open it from Settings → Transparent Fish.",
+    "detail": "docs/DETAIL.en.md"
+  }
+}

@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="zh-CN" data-tf="on">
+<head>
+<meta charset="utf-8">
+<title>透明肥鱼 · 预览</title>
+<link rel="stylesheet" href="../src/glass.css">
+<style>
+  /* 这个页面的唯一作用：用插件的真实样式表，搭一个和 DSH 同构的假界面，
+     方便在本地反复调，不动用户的运行环境。 */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1440px; height: 900px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", -apple-system, system-ui, sans-serif;
+    color: var(--tf-ink);
+    background: #0a0d14;
+  }
+  .app { position: relative; width: 100%; height: 100%; display: grid; grid-template-columns: 280px 1fr; }
+
+  /* ── 侧栏（类名带 sidebarCol，命中插件选择器）── */
+  .PIRFFq_sidebarCol { height: 100%; padding: 16px 12px 14px; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 0 6px 18px; font-size: 15px; font-weight: 700; }
+  .brand .mark { width: 26px; height: 26px; border-radius: 9px; background: var(--tf-ink); }
+  .newSession {
+    height: 38px; display: flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 12px; font-size: 13.5px; font-weight: 600; width: 100%;
+    border: none; cursor: pointer;
+  }
+  .nav { display: flex; flex-direction: column; gap: 2px; margin: 14px 0 22px; }
+  .nav .item { display: flex; align-items: center; gap: 11px; height: 34px; padding: 0 10px; border-radius: 10px; font-size: 13.5px; }
+  .sec { display: flex; justify-content: space-between; padding: 0 10px 8px; font-size: 12px; opacity: .55; }
+  .row { display: flex; align-items: center; justify-content: space-between; height: 36px; padding: 0 10px; border-radius: 10px; font-size: 13px; }
+  .row .t { font-size: 11.5px; opacity: .5; }
+  .row.on { color: var(--tf-accent); }
+  .spacer { flex: 1; }
+  .user { display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 10px; font-size: 13px; }
+  .user .av { width: 22px; height: 22px; border-radius: 50%; background: var(--tf-ink-dim); }
+
+  /* ── 正文 ── */
+  .kiGsTW_root { height: 100%; display: flex; flex-direction: column; }
+  .topbar { height: 62px; display: flex; align-items: center; gap: 16px; padding: 0 26px; font-size: 13.5px; }
+  .chip { padding: 4px 10px; border-radius: 8px; background: var(--tf-mat-float); font-size: 12.5px; }
+  .thread { flex: 1; padding: 24px 44px 0; }
+  .msg { max-width: 760px; font-size: 14px; line-height: 1.95; margin-bottom: 22px; }
+  .bubble { margin-left: auto; width: fit-content; padding: 10px 16px; border-radius: 18px; background: var(--tf-mat-float); font-size: 13.5px; }
+  .composer-wrap { padding: 0 44px 22px; }
+  .composer { border-radius: 24px; padding: 16px 18px 12px; }
+  .composer .ph { font-size: 14px; opacity: .55; }
+  .composer .tools { display: flex; align-items: center; gap: 10px; margin-top: 22px; font-size: 12.5px; opacity: .8; }
+  .composer .send { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; background: var(--tf-accent); opacity: .85; }
+
+  /* ── 思考过程行（裸文字，模拟真实对话里的工具/思考记录）── */
+  .think {
+    display: flex; align-items: flex-start; gap: 9px;
+    font-size: 13px; line-height: 1.62; margin: 0 0 15px;
+    color: var(--tf-ink, #10131a);
+  }
+  .think .ic { flex: none; width: 15px; height: 15px; margin-top: 3px; border-radius: 4px;
+               background: currentColor; opacity: .38; }
+  .think b { font-weight: 600; }
+
+  /* 对话区容器：三种方案只改这里 */
+  .thread { position: relative; }
+
+  /* 方案 A：整块 Regular 材质（blur 20 + 提亮），气泡降级为纯色块 */
+  body[data-scheme="a"] .thread {
+    background: rgb(255 255 255 / 0.42);
+    backdrop-filter: blur(20px) saturate(120%);
+    -webkit-backdrop-filter: blur(20px) saturate(120%);
+  }
+  body[data-scheme="a"][data-ds-dark-theme] .thread { background: rgb(0 0 0 / 0.46); }
+  body[data-scheme="a"] [data-message-bubble] {
+    box-shadow: none !important;
+    background-image: none !important;
+    background-color: rgb(255 255 255 / 0.30) !important;
+  }
+  body[data-scheme="a"][data-ds-dark-theme] [data-message-bubble] {
+    background-color: rgb(255 255 255 / 0.10) !important;
+  }
+
+  /* 方案 C1：思考行做成贴合文字的小胶囊，气泡完全不动 */
+  body[data-scheme="c1"] .think {
+    width: fit-content;
+    max-width: 88%;
+    padding: 6px 13px;
+    border-radius: 11px;
+    background-color: color-mix(in srgb, var(--tf-mat-float) 92%, transparent);
+    box-shadow:
+      inset 0 0 0 1px var(--tf-hairline),
+      inset 0 1px 0 rgb(255 255 255 / 0.22);
+  }
+
+  /* 方案 C2：全宽淡条 + 左侧竖线（引用块式），气泡不动 */
+  body[data-scheme="c2"] .think {
+    padding: 7px 0 7px 12px;
+    border-left: 2px solid color-mix(in srgb, var(--tf-ink) 26%, transparent);
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--tf-mat-float) 70%, transparent),
+      color-mix(in srgb, var(--tf-mat-float) 30%, transparent));
+    border-radius: 0 8px 8px 0;
+  }
+
+  /* 方案 C3：思考行 = 四边羽化的柔边底（无描边、无投影）→ 读作"贴在地面"；
+     气泡保持硬边 + 亮线 + 投影 → 读作"浮在上面"。层级靠"边缘锐度"区分。 */
+  body[data-scheme="c3"] .think {
+    position: relative;
+    padding: 7px 14px;
+    margin: 0 -8px 15px;
+    isolation: isolate;
+  }
+  /* 和真实实现一致：mask 羽化 + 不透明基色，不用 backdrop-filter / filter */
+  body[data-scheme="c3"] .think::before {
+    content: "";
+    position: absolute;
+    inset: -4px -12px;
+    z-index: -1;
+    border-radius: 14px;
+    background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 80%, transparent);
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%),
+      linear-gradient(180deg, transparent 0, #000 6px, #000 calc(100% - 6px), transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%),
+      linear-gradient(180deg, transparent 0, #000 6px, #000 calc(100% - 6px), transparent 100%);
+    mask-composite: intersect;
+  }
+
+  /* 方案 C4：同样的思路，羽化更宽、底更淡，几乎"化"进壁纸 */
+  body[data-scheme="c4"] .think {
+    position: relative;
+    padding: 7px 16px;
+    margin: 0 -10px 16px;
+    isolation: isolate;
+  }
+  body[data-scheme="c4"] .think::before {
+    content: "";
+    position: absolute;
+    inset: -6px -20px;
+    z-index: -1;
+    border-radius: 24px;
+    background-color: color-mix(in srgb, var(--tf-mat-float) 84%, transparent);
+    filter: blur(16px);
+  }
+
+  /* E1：补上"边缘暗值层"（美术原理第 2 层）—— 四边内阴影，中心不受影响 */
+  body[data-scheme="e1"] [data-message-bubble] {
+    box-shadow:
+      inset 0 0 0 1px var(--tf-hairline),
+      inset 0 0 18px -4px rgb(0 0 0 / 0.26),
+      inset 0 2px 0 rgb(255 255 255 / 0.42),
+      inset 0 -2px 0 rgb(0 0 0 / 0.22),
+      0 26px 62px -26px rgb(6 12 24 / 0.8) !important;
+  }
+
+  /* E2：边缘暗值 + 中心更透（更接近"擦除中心"） */
+  body[data-scheme="e2"] [data-message-bubble] {
+    background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 38%, transparent) !important;
+    box-shadow:
+      inset 0 0 0 1px var(--tf-hairline),
+      inset 0 0 20px -3px rgb(0 0 0 / 0.30),
+      inset 0 2px 0 rgb(255 255 255 / 0.46),
+      inset 0 -2px 0 rgb(0 0 0 / 0.24),
+      0 26px 62px -26px rgb(6 12 24 / 0.8) !important;
+  }
+
+  /* E3：暗值层加强 + 底部暗值最重（光从上方来，底部边缘阻挡最多） */
+  body[data-scheme="e3"] [data-message-bubble] {
+    box-shadow:
+      inset 0 0 0 1px var(--tf-hairline),
+      inset 0 0 22px -5px rgb(0 0 0 / 0.40),
+      inset 0 3px 0 rgb(255 255 255 / 0.55),
+      inset 0 -10px 18px -14px rgb(0 0 0 / 0.40),
+      inset 0 -2px 0 rgb(0 0 0 / 0.26),
+      0 26px 62px -26px rgb(6 12 24 / 0.8) !important;
+  }
+
+  /* E4：真透明 —— 中心几乎全透，形状全靠边缘一条亮线勾勒 */
+  body[data-scheme="e4"] [data-message-bubble] {
+    background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 10%, transparent) !important;
+    background-image: none !important;
+    box-shadow:
+      inset 0 0 0 1.5px rgb(255 255 255 / 0.42),
+      inset 0 1.5px 0 rgb(255 255 255 / 0.80),
+      inset 0 -1px 0 rgb(0 0 0 / 0.10),
+      0 10px 30px -16px rgb(0 0 0 / 0.35) !important;
+  }
+
+  /* E5：中间 26%，能看出"有层东西"但背景依然清晰 */
+  body[data-scheme="e5"] [data-message-bubble] {
+    background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 26%, transparent) !important;
+    background-image: none !important;
+    box-shadow:
+      inset 0 0 0 1.5px rgb(255 255 255 / 0.40),
+      inset 0 1.5px 0 rgb(255 255 255 / 0.70),
+      inset 0 -1px 0 rgb(0 0 0 / 0.12),
+      0 10px 30px -16px rgb(0 0 0 / 0.35) !important;
+  }
+
+  /* E6：有厚度的玻璃 —— 顶光在上
+       · 上表面：一片亮面（不是 1px 线），0~10px 内从亮衰减
+       · 明暗交界：上表面与垂直面的转折，在 ~10px 处快速跌落
+       · 垂直面：整块略暗，向下继续加深
+       · 底边：暗线 + 底部厚度暗
+       · 底面反射：最底下 6px 回亮一点（玻璃底面把壁纸弹回来）
+       · 菲涅尔：外圈一条亮边（掠射角全反射） */
+  body[data-scheme="e6"] [data-message-bubble] {
+    background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 34%, transparent) !important;
+    background-image:
+      linear-gradient(180deg,
+        rgb(255 255 255 / 0.52) 0px,
+        rgb(255 255 255 / 0.36) 3px,
+        rgb(255 255 255 / 0.12) 9px,
+        rgb(255 255 255 / 0.00) 17px,
+        rgb(0 0 0 / 0.03) 52%,
+        rgb(0 0 0 / 0.11) 100%),
+      linear-gradient(0deg,
+        rgb(255 255 255 / 0.13) 0px,
+        rgb(255 255 255 / 0.00) 7px) !important;
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.44),
+      inset 0 2px 0 rgb(255 255 255 / 0.72),
+      inset 0 -2px 0 rgb(0 0 0 / 0.30),
+      inset 0 -12px 18px -15px rgb(0 0 0 / 0.38),
+      0 10px 30px -16px rgb(0 0 0 / 0.35) !important;
+  }
+
+  /* E7：高对比玻璃 —— 亮部留白到 88%，暗部压到 55%，中间只留很轻的环境反射 */
+  body[data-scheme="e7"] [data-message-bubble] {
+    background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 18%, transparent) !important;
+    background-image:
+      /* 上表面受光：极亮窄带，4px 内从 82% 跌到 0（锐利的高光面） */
+      linear-gradient(180deg,
+        rgb(255 255 255 / 0.88) 0px,
+        rgb(255 255 255 / 0.62) 2px,
+        rgb(255 255 255 / 0.16) 6px,
+        rgb(255 255 255 / 0.00) 11px),
+      /* 底部厚度：深，且分两层（深色那层更厚） */
+      linear-gradient(0deg,
+        rgb(0 0 0 / 0.60) 0px,
+        rgb(0 0 0 / 0.34) 2px,
+        rgb(0 0 0 / 0.10) 8px,
+        rgb(0 0 0 / 0.00) 15px),
+      /* 杯底反光：最底下再弹回一点亮，形成"深—亮"的第二层 */
+      linear-gradient(0deg,
+        rgb(255 255 255 / 0.22) 0px,
+        rgb(255 255 255 / 0.00) 3px) !important;
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.62),
+      inset 0 -2px 0 rgb(0 0 0 / 0.55),
+      inset 0 0 24px -14px rgb(0 0 0 / 0.55),
+      0 10px 30px -16px rgb(0 0 0 / 0.40) !important;
+  }
+
+  /* E8：方形薄玻璃板（≈1mm）
+       · 圆角收到 5px —— 面是平的，只有极小的倒角
+       · 没有渐变带：正面均匀受光，不该有"顶部亮带"
+       · 厚度只体现在边缘 1~2px：顶边亮线、底边暗线、左右各一条极弱
+       · 中间几乎全透 */
+  body[data-scheme="e8"] [data-message-bubble] {
+    border-radius: 5px !important;
+    background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 10%, transparent) !important;
+    background-image: none !important;
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.50),
+      inset 0 1.5px 0 rgb(255 255 255 / 0.92),
+      inset 0 -1.5px 0 rgb(0 0 0 / 0.50),
+      inset 1px 0 0 rgb(255 255 255 / 0.18),
+      inset -1px 0 0 rgb(0 0 0 / 0.14),
+      0 6px 16px -10px rgb(0 0 0 / 0.35) !important;
+  }
+
+  /* E9：方形薄板 —— 保留实体面，边缘只有 2~4px 的窄层次
+       · 圆角 6px：面是平的，只有极小倒角
+       · 面：22% 底色，能看出"有一块板"但背景依然清楚
+       · 顶边：1.5px 高光 + 内侧 3px 渐隐（窄受光面）
+       · 底边：1.5px 暗线 + 内侧 4px 渐隐（厚度） */
+  body[data-scheme="e9"] [data-message-bubble] {
+    border-radius: 6px !important;
+    background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 22%, transparent) !important;
+    background-image:
+      linear-gradient(180deg,
+        rgb(255 255 255 / 0.42) 0px,
+        rgb(255 255 255 / 0.12) 3px,
+        rgb(255 255 255 / 0.00) 6px),
+      linear-gradient(0deg,
+        rgb(0 0 0 / 0.30) 0px,
+        rgb(0 0 0 / 0.10) 4px,
+        rgb(0 0 0 / 0.00) 8px) !important;
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.55),
+      inset 0 1.5px 0 rgb(255 255 255 / 0.90),
+      inset 0 -1.5px 0 rgb(0 0 0 / 0.48),
+      inset 1px 0 0 rgb(255 255 255 / 0.16),
+      inset -1px 0 0 rgb(0 0 0 / 0.12),
+      0 6px 16px -10px rgb(0 0 0 / 0.35) !important;
+  }
+
+  /* E10：方形薄板 + 方向性边光
+       光从上方偏左来：顶边最亮 → 左边次之 → 右边弱 → 底边只剩反光
+       底边内侧压一道暗（远侧内壁透过 1mm 看到的），这是"薄"的关键
+       板子几乎不离面，投影极浅 */
+  body[data-scheme="e10"] [data-message-bubble] {
+    border-radius: 6px !important;
+    background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 20%, transparent) !important;
+    background-image:
+      linear-gradient(180deg,
+        rgb(255 255 255 / 0.08) 0%,
+        rgb(255 255 255 / 0.00) 38%,
+        rgb(0 0 0 / 0.07) 100%) !important;
+    box-shadow:
+      inset 0 1.5px 0 rgb(255 255 255 / 0.95),
+      inset 1.5px 0 0 rgb(255 255 255 / 0.52),
+      inset -1.5px 0 0 rgb(255 255 255 / 0.30),
+      inset 0 -1.5px 0 rgb(255 255 255 / 0.26),
+      inset 0 -4px 5px -3px rgb(0 0 0 / 0.55),
+      inset 0 4px 5px -3px rgb(255 255 255 / 0.16),
+      0 4px 10px -8px rgb(0 0 0 / 0.40) !important;
+  }
+
+  /* E11：保留现在的材质浓度，只把形状改成方形薄板
+       面上不做"渐变带"，只有极轻的上亮下暗
+       四边 = 1.5px 厚度线，亮度按光源方向依次递减（顶 > 左 > 右 > 底）
+       底边内侧压一道窄暗，读作"远侧内壁"；投影收到极浅 */
+  body[data-scheme="e11"] [data-message-bubble] {
+    border-radius: 6px !important;
+    background-color: var(--tf-mat-user) !important;
+    background-image:
+      linear-gradient(180deg,
+        rgb(255 255 255 / 0.06) 0%,
+        rgb(255 255 255 / 0.00) 30%,
+        rgb(0 0 0 / 0.05) 100%) !important;
+    box-shadow:
+      inset 0 1.5px 0 rgb(255 255 255 / 0.90),
+      inset 1.5px 0 0 rgb(255 255 255 / 0.42),
+      inset -1.5px 0 0 rgb(255 255 255 / 0.24),
+      inset 0 -1.5px 0 rgb(255 255 255 / 0.20),
+      inset 0 -4px 5px -3px rgb(0 0 0 / 0.32),
+      inset 0 0 0 1px rgb(255 255 255 / 0.16),
+      0 3px 9px -7px rgb(6 12 24 / 0.55) !important;
+  }
+
+  /* E12：环境色映射 —— 边缘那一圈不是白线，而是"它自己正后方那片壁纸"
+       · 副本用 background-attachment: fixed，跟视口对齐 → 每块玻璃自动落在自己那段壁纸上
+       · background-size 稍大 + 偏移 → 边缘取到的是"更外面"的像素，即折射位移
+       · saturate 拉高 → 掠射角下颜色被压缩后饱和度上升的那感觉
+       · 中间仍然是不透明的材质，保证字可读 */
+  body[data-scheme="e12"] [data-message-bubble] {
+    position: relative !important;
+    isolation: isolate;
+    border-radius: 6px !important;
+    background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 46%, transparent) !important;
+    background-image: none !important;
+    box-shadow:
+      inset 0 1.5px 0 rgb(255 255 255 / 0.80),
+      inset 0 -1.5px 0 rgb(0 0 0 / 0.38),
+      0 6px 16px -10px rgb(0 0 0 / 0.45) !important;
+  }
+  body[data-scheme="e12"] [data-message-bubble]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: var(--tf-env-url);
+    background-attachment: fixed;
+    background-size: 104% 104%;
+    background-position: center;
+    filter: saturate(210%) brightness(1.08) contrast(1.06);
+    -webkit-mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000);
+    -webkit-mask-clip: border-box, content-box;
+    -webkit-mask-composite: xor;
+    mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000);
+    mask-clip: border-box, content-box;
+    mask-composite: exclude;
+    padding: 7px;
+    box-sizing: border-box;
+    opacity: 0.95;
+  }
+
+  /* E13：环境色透进玻璃内部（不是描边）
+       · 一整块玻璃底下垫一份"跟视口对齐的壁纸副本"，模糊 + 提饱和 + 放大 3%
+         → 每块玻璃里的颜色 = 它正后方那片壁纸，且被放大 = 折射位移
+       · 低不透明度：只当"环境光"，材质浓度仍然决定可读性
+       · 边缘仍然只有 1.5px 的受光线 */
+  body[data-scheme="e13"] [data-message-bubble] {
+    position: relative !important;
+    isolation: isolate;
+    border-radius: 6px !important;
+    background-color: color-mix(in srgb, var(--tf-mat-base-mixed) 62%, transparent) !important;
+    background-image: none !important;
+    box-shadow:
+      inset 0 1.5px 0 rgb(255 255 255 / 0.88),
+      inset 0 -1.5px 0 rgb(0 0 0 / 0.40),
+      0 5px 14px -10px rgb(0 0 0 / 0.45) !important;
+  }
+  body[data-scheme="e13"] [data-message-bubble]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: var(--tf-env-url);
+    background-attachment: fixed;
+    background-size: cover;
+    background-position: center;
+    transform: scale(1.03);
+    filter: blur(16px) saturate(175%) brightness(1.04);
+    opacity: 0.34;
+  }
+
+  /* E14：边缘 = 严格对齐的壁纸 + 提亮
+       物理上掠射的边缘看到的就是"正后方那片壁纸"，只是更亮更饱和、被压缩。
+       所以：不加 filter/transform（会改变 fixed 背景的定位基准），
+       只用叠一层白 + 更强的材质，得到"同色但更亮"的边缘。 */
+  body[data-scheme="e14"] [data-message-bubble] {
+    position: relative !important;
+    isolation: isolate;
+    border-radius: 6px !important;
+    background-color: var(--tf-mat-user) !important;
+    background-image: none !important;
+    box-shadow:
+      inset 0 -1.5px 0 rgb(0 0 0 / 0.34),
+      0 5px 14px -10px rgb(0 0 0 / 0.45) !important;
+  }
+  body[data-scheme="e14"] [data-message-bubble]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: var(--tf-env-url);
+    background-attachment: fixed;
+    background-size: cover;
+    background-position: center;
+    padding: 3px;
+    box-sizing: border-box;
+    -webkit-mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000);
+    -webkit-mask-clip: border-box, content-box;
+    -webkit-mask-composite: xor;
+    mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000);
+    mask-clip: border-box, content-box;
+    mask-composite: exclude;
+  }
+  /* 边缘提亮 + 顶边受光：叠在边缘带上，让"同色"变"更亮" */
+  body[data-scheme="e14"] [data-message-bubble]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    padding: 3px;
+    box-sizing: border-box;
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.95) 0%, rgb(255 255 255 / 0.55) 100%);
+    -webkit-mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000);
+    -webkit-mask-clip: border-box, content-box;
+    -webkit-mask-composite: xor;
+    mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000);
+    mask-clip: border-box, content-box;
+    mask-composite: exclude;
+    mix-blend-mode: soft-light;
+    opacity: 0.95;
+  }
+
+  /* E15：E13 的内部环境色（压低到不伤字） + E14 的对齐边缘 */
+  body[data-scheme="e15"] [data-message-bubble] {
+    position: relative !important;
+    isolation: isolate;
+    border-radius: 6px !important;
+    background-color: var(--tf-mat-user) !important;
+    background-image: none !important;
+    box-shadow:
+      inset 0 -1.5px 0 rgb(0 0 0 / 0.34),
+      0 5px 14px -10px rgb(0 0 0 / 0.45) !important;
+  }
+  /* 内部：极淡的环境色（不模糊，保持像素与壁纸同源） */
+  body[data-scheme="e15"] [data-message-bubble]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: var(--tf-env-url);
+    background-attachment: fixed;
+    background-size: cover;
+    background-position: center;
+    filter: blur(12px) saturate(150%);
+    opacity: 0.16;
+  }
+  /* 边缘：对齐的壁纸 + 提亮，同色但更亮 */
+  body[data-scheme="e15"] [data-message-bubble]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    padding: 3px;
+    box-sizing: border-box;
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.95) 0%, rgb(255 255 255 / 0.58) 100%),
+      var(--tf-env-url);
+    background-attachment: scroll, fixed;
+    background-size: auto, cover;
+    background-position: center, center;
+    -webkit-mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000);
+    -webkit-mask-clip: border-box, content-box;
+    -webkit-mask-composite: xor;
+    mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000);
+    mask-clip: border-box, content-box;
+    mask-composite: exclude;
+  }
+
+  /* G1：只删掉六处 radial 白光，其它一律不动 */
+  body[data-scheme="g1"] [class*="sidebarCol"]::before {
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.06) 0%, rgb(255 255 255 / 0) 30%, rgb(0 0 0 / 0.02) 100%);
+  }
+  body[data-scheme="g1"] [data-composer-card] {
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.10) 0%, rgb(255 255 255 / 0) 32%, rgb(0 0 0 / 0.04) 100%);
+  }
+  body[data-scheme="g1"] [data-message-bubble],
+  body[data-scheme="g1"] [class*="_markdown_"]:not([data-message-bubble] *) {
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.13) 0%, rgb(255 255 255 / 0) 28%, rgb(0 0 0 / 0.05) 100%);
+  }
+  body[data-scheme="g1"] [class*="scrollBody"] [class*="_actions"] {
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.10) 0%, rgb(255 255 255 / 0) 30%, rgb(0 0 0 / 0.04) 100%);
+  }
+
+  /* G2：G1 基础上，再去掉顶部那条 2px 硬白线（inset 0 2px 0 white/.32） */
+  body[data-scheme="g2"] [class*="sidebarCol"]::before {
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.06) 0%, rgb(255 255 255 / 0) 30%, rgb(0 0 0 / 0.02) 100%);
+  }
+  body[data-scheme="g2"] [data-composer-card] {
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.10) 0%, rgb(255 255 255 / 0) 32%, rgb(0 0 0 / 0.04) 100%);
+  }
+  body[data-scheme="g2"] [data-message-bubble] {
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.13) 0%, rgb(255 255 255 / 0) 28%, rgb(0 0 0 / 0.05) 100%) !important;
+    box-shadow:
+      inset 0 -2px 0 rgb(0 0 0 / 0.20),
+      inset 0 0 0 1px var(--tf-hairline),
+      0 26px 62px -26px rgb(6 12 24 / 0.80),
+      0 6px 16px -9px rgb(6 12 24 / 0.5) !important;
+  }
+  body[data-scheme="g2"] [class*="_markdown_"]:not([data-message-bubble] *) {
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.13) 0%, rgb(255 255 255 / 0) 28%, rgb(0 0 0 / 0.05) 100%) !important;
+    box-shadow:
+      inset 0 -2px 0 rgb(0 0 0 / 0.20),
+      inset 0 0 0 1px var(--tf-hairline),
+      0 26px 62px -26px rgb(6 12 24 / 0.80),
+      0 6px 16px -9px rgb(6 12 24 / 0.5) !important;
+  }
+
+  /* 方案 B：轻模糊 + 亮度抬升，气泡保持现在的玻璃外观 */
+  body[data-scheme="b"] .thread {
+    background: rgb(255 255 255 / 0.26);
+    backdrop-filter: blur(8px) saturate(115%) brightness(1.05);
+    -webkit-backdrop-filter: blur(8px) saturate(115%) brightness(1.05);
+  }
+  body[data-scheme="b"][data-ds-dark-theme] .thread { background: rgb(0 0 0 / 0.32); }
+
+  /* ---- 空会话（新会话）视图：?view=hero ---- */
+  .hero { display: none; }
+  body[data-view="hero"] .thread { display: none; }
+  body[data-view="hero"] .hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 26px;
+    pointer-events: none;
+  }
+  /* 空会话时整组（标题 + 胶囊 + 输入框）垂直居中，和 DSH 原生一致 */
+  body[data-view="hero"] .composer-wrap { margin-top: auto; margin-bottom: auto; }
+  .hero .brand { display: flex; align-items: center; gap: 13px; }
+  .hero .mark { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 6px 18px -8px rgb(0 0 0 / 0.45); }
+  .hero h1 { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: 0.5px; color: var(--tf-ink); }
+  .hero .pill { font-size: 13px; padding: 3px 10px; border-radius: 999px; }
+  /* 胶囊们用材质，而不是白色半透明 —— 浅色壁纸上白胶囊会消失 */
+  .hero .pill, .chips span {
+    color: var(--tf-ink);
+    background-color: var(--tf-mat-float);
+    box-shadow:
+      inset 0 0 0 1px var(--tf-hairline),
+      inset 0 1px 0 rgb(255 255 255 / 0.22);
+  }
+  .chips { display: none; justify-content: center; gap: 10px; margin-bottom: 12px; }
+  body[data-view="hero"] .chips { display: flex; }
+  .chips span { font-size: 14px; padding: 4px 12px; border-radius: 999px; }
+</style>
+</head>
+<body>
+  <div class="tf-wall"><img id="wall" src="sample-wallpaper.jpg" alt=""></div>
+
+  <div class="app">
+    <aside class="PIRFFq_sidebarCol">
+      <div class="brand"><span class="mark"></span>deepseek HARNESS</div>
+      <button class="newSession">＋ 新会话</button>
+      <nav class="nav">
+        <div class="item">◇ 插件</div>
+        <div class="item">◷ 自动化任务</div>
+        <div class="item">⌗ 更多</div>
+      </nav>
+      <div class="sec"><span>工作区</span><span>⌕ ⇄ ＋</span></div>
+      <div class="row"><span>▤ 默认工作区</span></div>
+      <div class="row on"><span>▤ 新会话</span></div>
+      <div class="row"><span>○ 问候</span><span class="t">2 分钟</span></div>
+      <div class="row"><span>问候 (1)</span><span class="t">5 小时</span></div>
+      <div class="spacer"></div>
+      <div class="user"><span class="av"></span>示例用户</div>
+    </aside>
+
+    <main class="kiGsTW_root">
+      <div class="topbar">
+        <span>问候</span><span class="chip">标准模式</span><span>对话</span><span>轨迹</span>
+      </div>
+      <div class="thread">
+        <div class="msg" data-message-bubble style="margin-left:auto;width:fit-content">把整个 DSH 做成液态玻璃，壁纸要透出来</div>
+        <div class="think"><span class="ic"></span><span><b>思考</b> · The user wants the whole UI to be liquid glass, and the wallpaper must still show through. Let me check how the current materials are layered before touching anything.</span></div>
+        <div class="msg" data-message-bubble><p>侧栏和气泡是两种材质：侧栏内缩 10px 浮在壁纸上，气泡只包住内容，中间能看见壁纸。</p>
+          <p>文字颜色会跟着玻璃叠完之后的表面亮度翻转。</p></div>
+        <div class="think"><span class="ic"></span><span><b>运行命令</b> · Fix path and restart targets</span></div>
+        <div class="think"><span class="ic"></span><span><b>思考</b> · Let me regenerate targets.json with the rule hint, then build batch_01.json and craft the prompt for the agent.</span></div>
+        <div class="msg" data-message-bubble><p>会。每张壁纸只在第一次出现时判定一次，判定结果缓存下来，不会因为亮度抖动来回切换。</p></div>
+      </div>
+      <div class="composer-wrap">
+        <div class="hero">
+          <div class="brand">
+            <img class="mark" src="../icon.svg" alt="">
+            <h1>探索未至之境</h1>
+            <span class="pill">预览版</span>
+          </div>
+        </div>
+        <div class="chips"><span>▣ 默认工作区</span><span>⚙ 标准模式</span></div>
+        <div class="composer" data-composer-card>
+          <div class="ph">描述你想要构建的内容，/ 调用指令，@ 文件或对话</div>
+          <div class="tools"><span>＋</span><span>工作区内修改</span><span class="send"></span></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="tf-band" aria-hidden="true"></div>
+
+<script>
+  /* 和插件里 layoutBand 一致的定位逻辑 */
+  function layoutBand() {
+    const band = document.querySelector('.tf-band')
+    const card = document.querySelector('[data-composer-card]')
+    const main = document.querySelector('.kiGsTW_root')
+    if (!band || !card || !main) return
+    const cr = card.getBoundingClientRect()
+    const mr = main.getBoundingClientRect()
+    const pad = 30
+    band.style.left = `${Math.round(cr.left - pad)}px`
+    band.style.width = `${Math.round(cr.width + pad * 2)}px`
+    const top = Math.round(mr.top) + 54
+    band.style.top = `${top}px`
+    band.style.height = `${window.innerHeight - top - 6}px`
+  }
+  layoutBand()
+  window.addEventListener('resize', layoutBand)
+
+  /* 预览控制：URL 参数 dark=1 切换主题，wall=文件名 切壁纸，mat=0.62 改浓度 */
+  const q = new URLSearchParams(location.search)
+  if (q.get('dark') === '1') document.body.setAttribute('data-ds-dark-theme', '')
+  if (q.get('wall')) document.getElementById('wall').src = q.get('wall')
+  const mirrorEnv = () => {
+    const w = document.getElementById('wall')
+    document.body.style.setProperty('--tf-env-url', `url("${w.src}")`)
+  }
+  mirrorEnv()
+  window.addEventListener('load', mirrorEnv)
+  if (q.get('mat')) document.body.style.setProperty('--tf-mat-a', q.get('mat'))
+  const scheme = q.get('scheme')
+  if (scheme) document.body.setAttribute('data-scheme', scheme)
+  if (q.get('view') === 'hero') document.body.setAttribute('data-view', 'hero')
+</script>
+
+<script>
+/* 三个配色方案：从当前壁纸采样后算出材质色，直接写进 --tf-mat-base-mixed。
+   s1 明度锚定 / s2 去色 / s3 冷暖偏置 */
+(() => {
+  const q = new URLSearchParams(location.search)
+  const scheme = q.get('scheme')
+  if (!['s1', 's2', 's3'].includes(scheme)) return
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
+  const luma = (r, g, b) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+  function toHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b)
+    const l = (mx + mn) / 2
+    let h = 0, s = 0
+    if (mx !== mn) {
+      const d = mx - mn
+      s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn)
+      if (mx === r) h = (g - b) / d + (g < b ? 6 : 0)
+      else if (mx === g) h = (b - r) / d + 2
+      else h = (r - g) / d + 4
+      h *= 60
+    }
+    return [h, s, l]
+  }
+  function fromHsl(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+    const m = l - c / 2
+    let r = 0, g = 0, b = 0
+    if (h < 60) { r = c; g = x }
+    else if (h < 120) { r = x; g = c }
+    else if (h < 180) { g = c; b = x }
+    else if (h < 240) { g = x; b = c }
+    else if (h < 300) { r = x; b = c }
+    else { r = c; b = x }
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)]
+  }
+  const mix = (a, b, t) => [
+    Math.round(a[0] * (1 - t) + b[0] * t),
+    Math.round(a[1] * (1 - t) + b[1] * t),
+    Math.round(a[2] * (1 - t) + b[2] * t),
+  ]
+  function analyze(img) {
+    const W = 64, H = 40
+    const c = document.createElement('canvas')
+    c.width = W; c.height = H
+    const x = c.getContext('2d')
+    const s = Math.max(W / img.naturalWidth, H / img.naturalHeight)
+    const dw = img.naturalWidth * s, dh = img.naturalHeight * s
+    x.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh)
+    const d = x.getImageData(0, 0, W, H).data
+    let r = 0, g = 0, b = 0
+    const n = d.length / 4
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2] }
+    return [r / n, g / n, b / n]
+  }
+  const run = () => {
+    /* file:// 下 canvas 会被判跨域变脏，读不出像素；
+       所以优先用外部（PIL）算好的平均值，通过 ?avg=r,g,b 传进来 */
+    const given = (q.get('avg') || '').split(',').map(Number)
+    let avg
+    if (given.length === 3 && given.every((v) => Number.isFinite(v))) {
+      avg = given
+    } else {
+      const img = document.getElementById('wall')
+      if (!img || !img.naturalWidth) { setTimeout(run, 120); return }
+      avg = analyze(img).map(Math.round)
+    }
+    const dark = document.body.hasAttribute('data-ds-dark-theme')
+    const base = dark ? [22, 24, 30] : [210, 217, 229]
+    const L = luma(avg[0], avg[1], avg[2])
+    const [h, s, l] = toHsl(avg[0], avg[1], avg[2])
+    let out
+    if (scheme === 's1') {
+      const target = dark ? clamp(L - 0.20, 0.10, 0.30) : clamp(L + 0.20, 0.55, 0.92)
+      out = fromHsl(h, 0.25, target)
+    } else if (scheme === 's2') {
+      out = mix(base, fromHsl(h, s * 0.20, l), 0.47)
+    } else {
+      const cool = dark ? [90, 120, 160] : [186, 203, 232]
+      out = mix(mix(base, avg, 0.47), cool, 0.12)
+    }
+    document.body.style.setProperty('--tf-mat-base-mixed', `rgb(${out[0]} ${out[1]} ${out[2]})`)
+    window.__tfProbe = {
+      avg, out,
+      wallLuma: +L.toFixed(3),
+      matLuma: +luma(out[0], out[1], out[2]).toFixed(3),
+      dLuma: +(luma(out[0], out[1], out[2]) - L).toFixed(3),
+    }
+  }
+  run()
+})()
+</script>
+</body>
+</html>

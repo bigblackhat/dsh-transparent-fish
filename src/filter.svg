@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false">
+  <defs>
+    <!--
+      液态玻璃折射：低频湍流当作位移图，只让背景在边缘处轻微弯折。
+      scale 越大越「液」，但会把文字也搅动，所以控制在 18 左右。
+    -->
+    <filter id="dsh-lg-refract" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.008 0.012" numOctaves="2" seed="17" result="noise" />
+      <feGaussianBlur in="noise" stdDeviation="1.6" result="soft" />
+      <feDisplacementMap in="SourceGraphic" in2="soft" scale="18" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  </defs>
+</svg>
